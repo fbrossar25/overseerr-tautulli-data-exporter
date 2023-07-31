@@ -5,16 +5,44 @@ import (
 	"github.com/dn365/gin-zerolog"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"os"
-	"overseerr-tautulli-data-exporter/config"
 	"path/filepath"
+	"strings"
 )
+
+var MaxLogLevel zerolog.Level
+var AppLogger zerolog.Logger
+
+type LogLevelHook struct{}
+
+func (h LogLevelHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	if level < MaxLogLevel {
+		e.Discard()
+	}
+}
 
 func main() {
 	// Init logging
+	logLevel := os.Getenv("LOG_LEVEL")
+	switch strings.ToUpper(strings.TrimSpace(logLevel)) {
+	case "ALL", "TRACE":
+		MaxLogLevel = zerolog.TraceLevel
+		MaxLogLevel = zerolog.TraceLevel
+	case "DEBUG":
+		MaxLogLevel = zerolog.DebugLevel
+	case "INFO":
+		MaxLogLevel = zerolog.InfoLevel
+	case "WARN":
+		MaxLogLevel = zerolog.WarnLevel
+	case "ERROR":
+		MaxLogLevel = zerolog.ErrorLevel
+	case "DISABLED":
+		MaxLogLevel = zerolog.Disabled
+	default:
+		MaxLogLevel = zerolog.InfoLevel
+	}
 	logFilePath := filepath.Clean(fmt.Sprintf("%s/%s", os.Getenv("LOG_DIR"), "overseerr-tautulli-data-exporter.log"))
 	logFile, errLog := os.OpenFile(
 		logFilePath,
@@ -22,23 +50,24 @@ func main() {
 		0666,
 	)
 	if errLog != nil {
-		log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-		log.Warn().Stack().Err(errLog).Str("file", logFilePath).Msg("Error opening log file, will write on console only")
+		AppLogger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Hook(LogLevelHook{})
+		AppLogger.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		AppLogger.Warn().Stack().Err(errLog).Str("file", logFilePath).Msg("Error opening log file, will write on console only")
 	} else {
-		log.Output(io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stderr}, logFile))
-		log.Info().Str("file", logFilePath).Msg(fmt.Sprintf("Logging to file %s", logFile.Name()))
+		AppLogger = zerolog.New(io.MultiWriter(logFile, zerolog.ConsoleWriter{Out: os.Stderr})).With().Timestamp().Logger().Hook(LogLevelHook{})
+		AppLogger.Info().Str("file", logFilePath).Msg(fmt.Sprintf("Logging to file %s", logFile.Name()))
 	}
 
-	log.Info().Str("version", os.Getenv("DOCKER_TAG")).Msg("overseerr-tautulli-data-exporter starting")
+	AppLogger.Info().Str("version", os.Getenv("DOCKER_TAG")).Str("mexLogLevel", MaxLogLevel.String()).Msg("overseerr-tautulli-data-exporter starting")
 
 	// Reading config
-	config.LoadConfig()
+	LoadConfig()
 
 	// Defining gin server
 	router := gin.New()
 	err := router.SetTrustedProxies(nil)
 	if err != nil {
-		log.Error().Stack().Err(err).Msg("router.SetTrustedProxies returned an error")
+		AppLogger.Error().Stack().Err(err).Msg("router.SetTrustedProxies returned an error")
 		os.Exit(1)
 	}
 	router.Use(ginzerolog.Logger("gin"))
@@ -46,11 +75,12 @@ func main() {
 	// TODO init routes here
 	router.GET("/check", check)
 	router.GET("/version", version)
+	InitTautulli()
 
 	// Defining gin server
 	routerErr := router.Run(":8090")
 	if routerErr != nil {
-		log.Error().Stack().Err(routerErr).Msg("router.Run returned an error")
+		AppLogger.Error().Stack().Err(routerErr).Msg("router.Run returned an error")
 		os.Exit(1)
 	}
 }

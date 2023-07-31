@@ -1,9 +1,8 @@
-package config
+package main
 
 import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -26,7 +25,7 @@ func LoadConfig() {
 	configFilePath := filepath.Clean(fmt.Sprintf("%s/%s", os.Getenv("CONF_DIR"), "overseerr-tautulli-data-exporter.yml"))
 	f, configFileErr := os.Open(configFilePath)
 	if configFileErr != nil {
-		log.Error().Stack().Err(configFileErr).Str("file", configFilePath).Msg("Error opening config file")
+		AppLogger.Error().Stack().Err(configFileErr).Str("file", configFilePath).Msg("Error opening config file")
 		panic(configFileErr)
 	}
 	defer f.Close()
@@ -34,16 +33,16 @@ func LoadConfig() {
 	decoder := yaml.NewDecoder(f)
 	configErr := decoder.Decode(&Config)
 	if configErr != nil {
-		log.Error().Stack().Err(configErr).Str("file", configFilePath).Msg("Error reading config file")
+		AppLogger.Error().Stack().Err(configErr).Str("file", configFilePath).Msg("Error reading config file")
 		panic(configErr)
 	}
 	v := validator.New()
 	validateConfigErr := v.Struct(Config)
 	if validateConfigErr != nil {
 		for _, e := range validateConfigErr.(validator.ValidationErrors) {
-			log.Error().Stack().Str("configError", fmt.Sprint(e)).Msg("Erreur à la lecture du fichier de config")
+			AppLogger.Error().Stack().Str("configError", fmt.Sprint(e)).Msg("Erreur à la lecture du fichier de config")
 		}
 		panic(validateConfigErr)
 	}
-	log.Info().Str("file", configFilePath).Msg("Config file parsed")
+	AppLogger.Info().Str("file", configFilePath).Msg("Config file parsed")
 }

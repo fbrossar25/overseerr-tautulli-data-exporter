@@ -1,26 +1,39 @@
 # build app in docker
 FROM golang:1.19 AS base
 
-WORKDIR /app
+ARG DOCKER_TAG
+ENV DOCKER_TAG=$DOCKER_TAG
+
+WORKDIR /app/src
 
 # download dependencies
-COPY go.mod go.sum ./
+COPY src/go.mod src/go.sum ./
 RUN go mod download
 
 # copy source code
-COPY . .
+COPY src/* ./
 
 # compile
-RUN CGO_ENABLED=0 GOOS=linux go build -o /overseerr-tautulli-data-exported
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/exporter
 
 # run app in docker
 FROM golang:1.19 AS production
+
+ARG DOCKER_TAG
+
+ENV CONF_DIR=/app/conf \
+    LOG_DIR=/app/logs \
+    DOCKER_TAG=$DOCKER_TAG
+
+# TODO when finished
+# ENV GIN_MODE=release
 
 WORKDIR /app
 
 COPY --from=base /app .
 
-EXPOSE 8080
+VOLUME /app/conf /app/logs /app/data
+EXPOSE 8090
 
 # run
-CMD ["/overseerr-tautulli-data-exported"]
+CMD ["/app/bin/exporter"]

@@ -1,0 +1,19 @@
+version: '3.6'
+services:
+  app:
+    container_name: overseerr-tautulli-data-exporter
+    image: overseerr-tautulli-data-exporter:dev
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./conf:/app/conf
+      - ./logs:/app/logs
+      - ./data:/app/data
+    build:
+      dockerfile: Dockerfile
+      args:
+        DOCKER_TAG: "dev"
+    environment:
+      TZ: "Europe/Paris"
+      LOG_LEVEL: "debug"
