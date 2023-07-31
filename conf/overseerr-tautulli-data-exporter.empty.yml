@@ -1,0 +1,6 @@
+tautulli:
+  url: http://your.tautulli.instance
+  apiKey: <TAUTULLI_API_TOKEN>
+overseerr:
+  url: http://your.overseerr.instance
+  apiKey: <OVERSEERR_API_TOKEN>

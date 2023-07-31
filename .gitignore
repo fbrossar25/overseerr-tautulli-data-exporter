@@ -1,0 +1,5 @@
+/conf/*
+!/conf/*.empty.*
+data
+logs
+.idea
