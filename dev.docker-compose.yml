@@ -2,7 +2,7 @@ version: '3.6'
 services:
   app:
     container_name: overseerr-tautulli-data-exporter
-    image: overseerr-tautulli-data-exporter:dev
+    image: fbrossar25/overseerr-tautulli-data-exporter:dev
     restart: unless-stopped
     ports:
       - "8090:8090"

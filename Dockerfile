@@ -1,7 +1,7 @@
 # build app in docker
 FROM golang:1.19 AS base
 
-ARG DOCKER_TAG
+ARG DOCKER_TAG=dev
 ENV DOCKER_TAG=$DOCKER_TAG
 
 WORKDIR /app/src
@@ -24,6 +24,10 @@ ARG DOCKER_TAG
 ENV CONF_DIR=/app/conf \
     LOG_DIR=/app/logs \
     DOCKER_TAG=$DOCKER_TAG
+
+RUN apt-get -y update  \
+    && apt-get -y upgrade  \
+    && apt-get install -y sqlite3 libsqlite3-dev
 
 # TODO when finished
 # ENV GIN_MODE=release

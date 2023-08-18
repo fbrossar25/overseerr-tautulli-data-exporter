@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type TautulliResponse[T interface{}] struct {
@@ -14,6 +16,38 @@ type TautulliResponse[T interface{}] struct {
 		Message string `json:"message"`
 		Data    T      `json:"data"`
 	} `json:"response"`
+}
+
+type Epoch int64
+
+// TautulliLibraryMediaInfo Response to command get_library_media_info
+// body of request (form-data):
+//
+//	section_id : int, library id from plex
+//	refresh : boolean, trigger refresh or not
+//	length : int, how many elements to retrieve, can be 0
+//
+// RecordsTotal Total number of records in this library with current filters
+// RecordsTotal Total number of records in this library
+// Data Filtered medias data
+// FilteredFileSize Size of all elements displayed in Data
+// TotalFileSize Size of Library
+// LastRefreshed Last time media infos refreshed (Epoch milliseconds)
+type TautulliLibraryMediaInfo struct {
+	RecordsFiltered  int   `json:recordsFiltered`
+	RecordsTotal     int   `json:recordsTotal`
+	Data             []any `json:data`
+	Draw             int   `json:draw`
+	FilteredFileSize int   `json:filtered_file_size`
+	TotalFileSize    int   `json:total_file_size`
+	LastRefreshed    Epoch `json:last_refreshed`
+}
+
+type LibrarySizeMetric struct {
+	gorm.Model
+	LibraryName   string
+	PlexSectionId int
+	Timestamp     time.Time
 }
 
 func InitTautulli() {
@@ -29,9 +63,17 @@ func getRedactedQuery(response *http.Response) url.Values {
 	return query
 }
 
-func GETTautulli(cmd string, target interface{}) error {
+func GETTautulli(cmd string, target interface{}, params map[string]string) error {
+	values := url.Values{}
+	values.Add("cmd", cmd)
+	values.Add("apikey", Config.Tautulli.ApiKey)
+	if params != nil {
+		for key, element := range params {
+			values.Add(key, element)
+		}
+	}
 	response, err := http.Get(
-		fmt.Sprintf("%s/api/v2?cmd=%s&apikey=%s", Config.Tautulli.Url, cmd, Config.Tautulli.ApiKey))
+		fmt.Sprintf("%s/api/v2?%s", Config.Tautulli.Url, values.Encode()))
 	if err != nil {
 		AppLogger.Error().
 			Int("statusCode", response.StatusCode).
@@ -52,7 +94,7 @@ func GETTautulli(cmd string, target interface{}) error {
 
 func TautulliCheck() bool {
 	status := new(TautulliResponse[interface{}])
-	err := GETTautulli("status", status)
+	err := GETTautulli("status", status, nil)
 	if err != nil {
 		AppLogger.Error().Str("url", Config.Tautulli.Url).Msg("Error checking Tautulli status")
 		return false
